@@ -3,7 +3,7 @@
 ; then compile this with ISCC.exe (Inno Setup 6).
 
 #define MyAppName "Secure Password Generator"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "akaAvinash"
 #define MyAppExeName "SecurePasswordGenerator.exe"
 #define MyAppURL "https://github.com/akaAvinash/password-generator"
