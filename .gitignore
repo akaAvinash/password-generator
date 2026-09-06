@@ -11,4 +11,5 @@ Output/
 *.egg-info/
 .pytest_cache/
 .vscode/
+.idea/
 *.log

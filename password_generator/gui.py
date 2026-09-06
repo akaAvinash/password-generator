@@ -1,4 +1,4 @@
-"""CustomTkinter desktop UI for the password generator."""
+"""CustomTkinter desktop UI for the password generator and vault."""
 
 from __future__ import annotations
 
@@ -14,9 +14,10 @@ from .core import (
     generate_for_entropy_target,
     strength_label,
 )
+from .vault_ui import VaultTab
 
 APP_TITLE = "Secure Password Generator"
-WINDOW_SIZE = "760x640"
+WINDOW_SIZE = "820x720"
 
 STRENGTH_COLORS = {
     "Weak": "#e5484d",
@@ -69,61 +70,25 @@ class PasswordRow(ctk.CTkFrame):
         self.after(1200, lambda: self.copy_btn.configure(text=original))
 
 
-class PasswordGeneratorApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
-
-        self.title(APP_TITLE)
-        self.geometry(WINDOW_SIZE)
-        self.minsize(640, 560)
-
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
-
-        self._build_header()
-        self._build_options()
-        self._build_results_area()
-        self._build_status_bar()
-
+class GeneratorTab(ctk.CTkFrame):
+    def __init__(self, master, on_copy, on_status):
+        super().__init__(master, fg_color="transparent")
+        self.on_copy = on_copy
+        self.on_status = on_status
         self.result_rows: list[PasswordRow] = []
 
-    # ---------- UI construction ----------
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
-    def _build_header(self):
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
-        header.grid_columnconfigure(0, weight=1)
-
-        title = ctk.CTkLabel(
-            header, text="🔐 Secure Password Generator",
-            font=ctk.CTkFont(size=22, weight="bold"),
-        )
-        title.grid(row=0, column=0, sticky="w")
-
-        subtitle = ctk.CTkLabel(
-            header,
-            text="Cryptographically secure passwords, sized to hit your entropy target.",
-            font=ctk.CTkFont(size=12),
-            text_color="gray60",
-        )
-        subtitle.grid(row=1, column=0, sticky="w")
-
-        self.theme_switch = ctk.CTkSegmentedButton(
-            header, values=["Dark", "Light"], command=self._on_theme_change
-        )
-        self.theme_switch.set("Dark")
-        self.theme_switch.grid(row=0, column=1, rowspan=2, sticky="e")
+        self._build_options()
+        self._build_results_area()
 
     def _build_options(self):
         panel = ctk.CTkFrame(self, corner_radius=12)
-        panel.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
+        panel.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         for col in range(4):
             panel.grid_columnconfigure(col, weight=1)
 
-        # Entropy target
         entropy_label = ctk.CTkLabel(panel, text="Entropy target", font=ctk.CTkFont(weight="bold"))
         entropy_label.grid(row=0, column=0, sticky="w", padx=16, pady=(16, 4))
 
@@ -133,7 +98,6 @@ class PasswordGeneratorApp(ctk.CTk):
         )
         self.entropy_menu.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 12))
 
-        # Count
         count_label = ctk.CTkLabel(panel, text="How many passwords", font=ctk.CTkFont(weight="bold"))
         count_label.grid(row=0, column=1, sticky="w", padx=16, pady=(16, 4))
 
@@ -143,7 +107,6 @@ class PasswordGeneratorApp(ctk.CTk):
         )
         self.count_menu.grid(row=1, column=1, sticky="ew", padx=16, pady=(0, 12))
 
-        # Character type checkboxes
         types_label = ctk.CTkLabel(panel, text="Character types", font=ctk.CTkFont(weight="bold"))
         types_label.grid(row=2, column=0, sticky="w", padx=16, pady=(4, 4))
 
@@ -169,7 +132,6 @@ class PasswordGeneratorApp(ctk.CTk):
         )
         ambiguous_cb.grid(row=5, column=0, columnspan=2, sticky="w", padx=16, pady=(4, 16))
 
-        # Generate button
         self.generate_btn = ctk.CTkButton(
             panel, text="Generate", font=ctk.CTkFont(size=15, weight="bold"),
             height=44, command=self.on_generate,
@@ -177,27 +139,9 @@ class PasswordGeneratorApp(ctk.CTk):
         self.generate_btn.grid(row=2, column=2, rowspan=4, columnspan=2, sticky="nsew", padx=16, pady=16)
 
     def _build_results_area(self):
-        container = ctk.CTkFrame(self, fg_color="transparent")
-        container.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 10))
-        container.grid_columnconfigure(0, weight=1)
-        container.grid_rowconfigure(0, weight=1)
-
-        self.results_scroll = ctk.CTkScrollableFrame(container, label_text="Generated passwords")
-        self.results_scroll.grid(row=0, column=0, sticky="nsew")
+        self.results_scroll = ctk.CTkScrollableFrame(self, label_text="Generated passwords")
+        self.results_scroll.grid(row=1, column=0, sticky="nsew")
         self.results_scroll.grid_columnconfigure(0, weight=1)
-
-    def _build_status_bar(self):
-        self.status_var = tk.StringVar(value="Ready.")
-        status = ctk.CTkLabel(
-            self, textvariable=self.status_var, font=ctk.CTkFont(size=11),
-            text_color="gray60", anchor="w",
-        )
-        status.grid(row=3, column=0, sticky="ew", padx=24, pady=(0, 10))
-
-    # ---------- Behavior ----------
-
-    def _on_theme_change(self, value: str):
-        ctk.set_appearance_mode(value.lower())
 
     def _clear_results(self):
         for row in self.result_rows:
@@ -221,23 +165,94 @@ class PasswordGeneratorApp(ctk.CTk):
                 password, length, charset_size, entropy = generate_for_entropy_target(options, target_bits)
                 row = PasswordRow(
                     self.results_scroll, password, length, charset_size, entropy,
-                    on_copy=self.copy_to_clipboard,
+                    on_copy=self.on_copy,
                 )
                 row.grid(sticky="ew", pady=6, padx=2)
                 self.result_rows.append(row)
 
-            self.status_var.set(
-                f"Generated {count} password(s) targeting {self.entropy_var.get()} entropy."
-            )
+            self.on_status(f"Generated {count} password(s) targeting {self.entropy_var.get()} entropy.")
         except PasswordGeneratorError as exc:
             messagebox.showerror("Cannot generate password", str(exc))
-            self.status_var.set("Generation failed — see error dialog.")
+            self.on_status("Generation failed — see error dialog.")
+
+
+class PasswordGeneratorApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
+
+        self.title(APP_TITLE)
+        self.geometry(WINDOW_SIZE)
+        self.minsize(680, 600)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        self._build_header()
+
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 10))
+        generator_tab = self.tabview.add("Generator")
+        vault_tab = self.tabview.add("Vault")
+
+        generator_tab.grid_columnconfigure(0, weight=1)
+        generator_tab.grid_rowconfigure(0, weight=1)
+        self.generator = GeneratorTab(generator_tab, on_copy=self.copy_to_clipboard, on_status=self.set_status)
+        self.generator.grid(row=0, column=0, sticky="nsew")
+
+        vault_tab.grid_columnconfigure(0, weight=1)
+        vault_tab.grid_rowconfigure(0, weight=1)
+        self.vault_ui = VaultTab(vault_tab, on_copy=self.copy_to_clipboard, on_status=self.set_status)
+        self.vault_ui.grid(row=0, column=0, sticky="nsew")
+
+        self._build_status_bar()
+
+    def _build_header(self):
+        header = ctk.CTkFrame(self, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
+        header.grid_columnconfigure(0, weight=1)
+
+        title = ctk.CTkLabel(
+            header, text="🔐 Secure Password Generator",
+            font=ctk.CTkFont(size=22, weight="bold"),
+        )
+        title.grid(row=0, column=0, sticky="w")
+
+        subtitle = ctk.CTkLabel(
+            header,
+            text="Generate strong passwords, and keep your existing ones in an encrypted local vault.",
+            font=ctk.CTkFont(size=12),
+            text_color="gray60",
+        )
+        subtitle.grid(row=1, column=0, sticky="w")
+
+        self.theme_switch = ctk.CTkSegmentedButton(
+            header, values=["Dark", "Light"], command=self._on_theme_change
+        )
+        self.theme_switch.set("Dark")
+        self.theme_switch.grid(row=0, column=1, rowspan=2, sticky="e")
+
+    def _build_status_bar(self):
+        self.status_var = tk.StringVar(value="Ready.")
+        status = ctk.CTkLabel(
+            self, textvariable=self.status_var, font=ctk.CTkFont(size=11),
+            text_color="gray60", anchor="w",
+        )
+        status.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 10))
+
+    def _on_theme_change(self, value: str):
+        ctk.set_appearance_mode(value.lower())
+
+    def set_status(self, text: str):
+        self.status_var.set(text)
 
     def copy_to_clipboard(self, text: str):
         self.clipboard_clear()
         self.clipboard_append(text)
         self.update()  # ensures clipboard content persists after app focus changes
-        self.status_var.set("Password copied to clipboard.")
+        self.set_status("Copied to clipboard.")
 
 
 def run():
