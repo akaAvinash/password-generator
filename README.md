@@ -18,6 +18,24 @@ of entropy**.
 - One-click copy to clipboard.
 - Light/dark theme.
 
+### Encrypted credential vault
+
+A second tab manages your *existing* passwords for real sites:
+
+- **Import from CSV** — export your Google Sheet as CSV (File > Download
+  > CSV) and import it; columns are auto-detected (site/username/password)
+  with a mapping screen if names don't match.
+- **Encrypted at rest** — entries are stored in `%APPDATA%\SecurePasswordGenerator\vault.dat`,
+  encrypted with a key derived from a master password you set (PBKDF2-HMAC-SHA256
+  + Fernet/AES). There is no password recovery — forgetting the master
+  password means the vault cannot be opened, the same trade-off any
+  local password manager makes.
+- **Rotation reminders** — entries older than 30 days are flagged
+  "Rotation due". Clicking **Rotate** generates a new password and saves
+  it to the vault immediately; you still need to change it on the real
+  website yourself — the app has no way to log into arbitrary sites and
+  change your password there automatically.
+
 ## Running from source
 
 ```bash
