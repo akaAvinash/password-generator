@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+build/
+dist/
+*.spec
+!build_tools/*.spec
+Output/
+*.egg-info/
+.pytest_cache/
+.vscode/
+*.log
